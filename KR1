@@ -1,0 +1,62 @@
+from sympy import *
+from control.matlab import *
+import numpy as np
+import matplotlib.pyplot as mp
+from numpy import *
+from fractions import Fraction
+
+
+s = Symbol('s')
+W1 = (2*s + 4)/s
+W2 = 1/(0.2*s + 1)
+W3 = 2.4/(2*s + 1)
+W4 = W3/W1
+W5 = W4 + W2
+W6 = 1/(1 + W2)
+W7 = W5 * W6
+W8 = 1 - W7
+W9 = W1/(1 + W8*W1)
+W10 = W9*W7
+print("10е звено:" + str(W10))
+W10 = together(W10)
+W10 = expand(W10)
+print(W10)
+
+Wr = W1*W8*W7
+Wr = expand(Wr)
+print(Wr)
+
+W11 = tf([4.48, 12.4, 4],[1.2, 9.72, 10.4, 4])
+print(W11)
+e = np.linspace(0, 1000, num=1000000)
+nyquist(W11, omega= e)
+mp.plot()
+mp.title('Диаграмма найквиста')
+mp.ylabel('+J')
+mp.xlabel('+1')
+mp.grid(True)
+mp.show()
+
+D = W11.den
+F = D[0]
+S = F[0]
+print("Коэффициенты: " + str(S))
+n = len(S)
+print("Количество элементов: " + str(n))
+print("Полюса: " + str(pole(W11)))
+w = symbols('w',real=True)
+result = 0
+for i in range(n):
+    Z = S[i]*(I*w)**(n-1)
+    result += Z
+    n -= 1
+print("Характеристический многочлен замкнутой системы" + str(result))
+Real=re(result)
+Im=im(result)
+print("Действительная часть Re= " + str(Real))
+print("Мнимая часть Im= " + str(Im))
+x=[Real.subs({w:q}) for q in arange(0,1,0.01)]
+y=[Im.subs({w:q}) for q in arange(0,1,0.01)]
+mp.plot(x,y)
+mp.grid(True)
+mp.show()
