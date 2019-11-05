@@ -1,0 +1,211 @@
+from control.matlab import *
+from numpy import *
+import numpy as np
+import matplotlib.pyplot as mp
+from sympy import *
+from fractions import Fraction
+
+
+def Funk(x):
+    global W7
+    W1 = tf([x], [3., 1.])
+    W2 = tf([1.], [6.4, 1])
+    W3 = tf([2.], [4., 1.])
+    W4 = tf([23.], [5., 1.])
+    W5 = W4 * W2 * W3
+    W6 = W5 / (1 + W5 * W1)
+    W7 = W5 * W1
+    return W6
+
+
+def Graf(W):
+    y, x = step(W)
+    mp.plot(x, y, "r")
+    mp.title('Переходная Характеристика')
+    mp.ylabel('Амплитуда')
+    mp.xlabel('Время(с)')
+    mp.grid(True)
+    mp.show()
+
+    mag, phase, omega = bode(W, dB=False)
+    mp.plot()
+    mp.show()
+
+    pzmap(W)
+    mp.plot()
+    mp.grid(True)
+    mp.show()
+
+    D = W.den
+    F = D[0]
+    S = F[0]
+    print("Коэффициенты: " + str(S))
+    n = len(S)
+    print("Количество элементов: " + str(n))
+    print("Полюса: " + str(pole(W)))
+    w = symbols('w', real=True)
+    result = 0
+    for i in range(n):
+        Z = S[i] * (I * w) ** (n - 1)
+        result += Z
+        n -= 1
+    print("Характеристический многочлен замкнутой системы" + str(result))
+    Real = re(result)
+    Im = im(result)
+    print("Действительная часть Re= " + str(Real))
+    print("Мнимая часть Im= " + str(Im))
+    x = [Real.subs({w: q}) for q in arange(0, 1, 0.01)]
+    y = [Im.subs({w: q}) for q in arange(0, 1, 0.01)]
+    mp.plot(x, y)
+    mp.grid(True)
+    mp.show()
+
+
+def Nyquist(K):
+    e = np.linspace(0, 2, num=1000)
+    real, imag, freq = nyquist(K, omega=e)
+    mp.plot()
+    mp.title('Диаграмма найквиста')
+    mp.ylabel('+J')
+    mp.xlabel('+1')
+    mp.grid(True)
+    mp.show()
+
+
+def Hurwitz(W, x):
+    D = W.den
+    F = D[0]
+    S = F[0]
+    T = False
+    Str1 = []
+    Str2 = []
+    for i in range(0, len(S), 1):
+        if (i % 2 != 0):
+            Str1.append(str(S[i]))
+        else:
+            Str2.append(str(S[i]))
+    n = len(S) - 1
+    Matr = []
+    i1 = 0
+    i2 = 0
+    for lines in range(0, n, 1):
+        if lines % 2 == 0:  # no четный
+            for i in range(0, i1, 1):
+                Matr.append("0")
+            for i in range(0, len(Str1), 1):
+                Matr.append(Str1[i])
+            for i in range(0, n - len(Str1) - i1, 1):
+                Matr.append("0")
+            i1 += 1
+        else:
+            for i in range(0, i2, 1):
+                Matr.append("0")
+            for i in range(0, len(Str2), 1):
+                Matr.append(Str2[i])
+            for i in range(0, n - len(Str2) - i2, 1):
+                Matr.append("0")
+            i2 += 1
+    newMatr = ""
+    f = 1
+    for i in range(0, len(Matr), 1):
+        if ((f * n) - i) == 0 and i != 0 and i != len(Matr) - 1:  # последний?
+            newMatr = newMatr + ";" + str(Matr[i]) + " "
+            f += 1
+        else:
+            if i == len(Matr) - 1:  # проверка на самый посл элемент
+                newMatr = newMatr + str(Matr[i])
+            else:
+                newMatr = newMatr + str(Matr[i]) + ' '
+    MatrixOfHurwitz = np.matrix(newMatr)
+    det = []
+    for i in range(1, n, 1):
+        Minor = MatrixOfHurwitz[:i, :i]
+        detMinor = np.linalg.det(Minor)
+        det.append(detMinor)
+    # print(det)
+    for i in det:
+        # print("Определитель Минора: " + str(i))
+        if i > 0:
+            T = True
+            # print("Ситема устойчива")
+        elif i == 0:
+            print("Система на границе устойчивости устойчива")
+        else:
+            # print("Ситема не устойчива")
+            T = False
+            break
+    if not T:
+        x -= 0.001
+        F = Funk(x)
+        Hurwitz(F, x)
+    else:
+        print("Коэффициент Kпр= " + str(x))
+    return T
+
+
+def AktienKoeffizienten(W):
+    w = np.linspace(0, 2 * np.pi, 500)
+    r = 1
+    x = r * np.cos(w)
+    y = r * np.sin(w)
+    e = np.linspace(0, 2, num=5000, )
+    real, imag, freq = nyquist(W, omega=e)
+    mp.plot(x, y, "r")
+    mp.title('Диаграмма найквиста')
+    mp.ylabel('+J')
+    mp.xlabel('+1')
+    mp.grid(True)
+    mp.show()
+
+    def Prived(A, S):
+        for s in A:
+            sf = float(s)
+            sf = sf * 100 // 1 / 100
+            S.append(sf)
+        return S
+
+    def Suchen(M, M1, M2):
+        global Punkt
+        for n in range(0, len(M1), 1):
+            for m in range(0, len(M2), 1):
+                if n == m:
+                    Punkt = [M1[n], M2[m]]
+            M.append(Punkt)
+        return M
+
+    R = []
+    I = []
+    X = []
+    Y = []
+    M = []
+    M2 = []
+    Suchen(M, Prived(real, R), Prived(imag, I))
+    Suchen(M2, Prived(x, X), Prived(y, Y))
+
+    for d in M:
+        if d in M2:
+            print("Точка пересечения: " + str(d))
+            break
+    fi = math.atan(d[1] / d[0])
+    if math.degrees(fi)>0:
+        print("Коэффициент запаса по фазе: " + str(math.degrees(fi)))
+    else:
+        print("Запаса нет, но вы держитесь.")
+
+    for A in M:
+        if A[1] == 0 and A[0] <= 0:
+            gm = 20 * math.log10(1 / math.fabs(A[0]))
+            if gm > 0:
+                print("Коэффициент запаса по амплитуде: " + str(gm) + " дБ")
+                break
+            else:
+                print("Запаса нет!")
+                break
+
+
+x = 0.09
+W = Funk(x)
+Graf(W)
+Nyquist(W7)
+AktienKoeffizienten(W7)
+Hurwitz(W, x)
