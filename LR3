@@ -1,0 +1,167 @@
+from control.matlab import *
+from numpy import *
+import numpy as np
+import matplotlib.pyplot as mp
+from sympy import *
+
+
+def transferFunction():
+
+    # Kp = 0.11295
+    # Ki = 0.0105
+    # Kd = 0.537
+
+    # Kp = 0.1
+    # Ki = 0.0087
+    # Kd = 0.47
+
+    Kd = 0.45
+    Kp = 0.05
+    Ki = 0.
+
+    s = Symbol('s')
+    W1 = 1 / (6.4 * s + 1)
+    W2 = 2 / (4 * s + 1)
+    W3 = 23 / (5 * s + 1)
+    W4 = (Kp * s + Kd * s ** 2 + Ki) / (s)
+    W = (W1 * W2 * W3 * W4) / (1 + W1 * W2 * W3 * W4)
+    W = together(W)
+    (num, den) = fraction(W)
+
+    num = expand(num)
+    num1 = num.args
+    num1 = list(num1)
+    num_new = []
+    for i in range(1, len(num1)):
+        N = num.coeff(s ** i)
+        N = float(N)
+        num_new.append(N)
+    T = float(num1[0])
+    num_new.insert(0, T)
+    num = list(reversed(num_new))
+
+    den = expand(den)
+    den1 = den.args
+    den1 = list(den1)
+    den_new = []
+    for i in range(1, len(den1)):
+        N = den.coeff(s ** i)
+        N = float(N)
+        den_new.append(N)
+    D = float(den1[0])
+    den_new.insert(0, D)
+    den = list(reversed(den_new))
+
+    W_new = tf(num, den)
+    return W_new
+
+
+def StepResponsible(W):
+    print(W)
+    e = np.linspace(0, 100, num=1000)
+    y, x = step(W, T=e)
+    mp.plot(x, y, "r")
+    mp.title('Переходная Характеристика')
+    mp.ylabel('Амплитуда')
+    mp.xlabel('Время(с)')
+    mp.grid(True)
+    mp.show()
+    print("Прямая оценка качества:")
+    y_max = max(y)
+    array_y = []
+    for i in y:
+        array_y.append(i)
+    I = array_y.index(max(array_y))
+    A = []
+    for i in range(I, len(array_y), 1):
+        A.append(y[i])
+    Im = A.index(min(A))
+    A1 = []
+    for i in range(Im + I, len(A), 1):
+        A1.append(y[i])
+    print("Колебательность: " + str(max(array_y) / max(A1) * 1000 // 1 / 1000))
+    print("Время достижения первого максимума: " + str(round(x[array_y.index(max(array_y))], 3)) + "c")
+    print("Значение первого максимума: " + str(round(max(array_y), 3)))
+    Delta = (y_max - y[900]) * 100 / y[900]
+    print("Перерегулирование = " + str(round(Delta, 3)) + "%")
+    y_delta_min = 0.95 * y[900]
+    y_delta_max = 1.05 * y[900]
+    print("Дельта установившегося значения (5%): от " + str(y_delta_min) + " до " + str(y_delta_max))
+    idy = np.argwhere(np.diff(np.sign(y - y_delta_min))).flatten()
+    idu = np.argwhere(np.diff(np.sign(y - y_delta_max))).flatten()
+    Y = []
+    for i in idu:
+        Y.append(i)
+    for i in idy:
+        Y.append(i)
+    print("Время переходного процесса = " + str(x[max(Y)] * 1000 // 1 / 1000) + "с")
+
+
+def Pole(W):
+    pzmap(W)
+    mp.plot()
+    mp.grid(True)
+    mp.show()
+    print('Оценка по распределению корней:')
+    Pol = pole(W)
+    print(Pol)
+    P = []
+    M = []
+    for i in Pol:
+        k = complex(i)
+        if k.real != 0:
+            P.append(k.real)
+            m = k.imag / k.real
+            M.append(m)
+    print("Степень колебательности: " + str(max(M)))
+    si = math.exp(math.pi / (2 * max(M)))
+    print("Перерегулирование: " + str(si))
+    print("a_min= " + str(max(P)))
+    t_reg = -2/max(P)
+    print("Время пп: " + str(t_reg) + "c")
+    Psi = 1 - math.exp((-2) * math.pi / max(M))
+    print("Степень затухания: " + str(Psi))
+
+def Freq(W):
+    global Punkt
+    e = np.linspace(0, 2, num=1000)
+    mag, phase, omega = bode(W, e, dB=False)
+    mp.plot()
+    mp.show()
+    mag_max = round(max(mag), 3)
+    array_omega = []
+    for i in omega:
+        array_omega.append(round(i, 3))
+    array_mag = []
+    for i in mag:
+        array_mag.append(round(i, 3))
+    array_phase = []
+    for i in phase:
+        array_phase.append(round(math.degrees(i), 3))
+    M = (mag_max/array_mag[0])
+    print("Показатель коллебательности М: " + str(M))
+    for n in range(array_mag.index(mag_max), len(array_mag), 1):
+        if array_mag[n] == array_mag[0]:
+            wc = array_omega[n]
+            phase_res = array_phase[n]
+            print("Врем регулирования: " + str(6.14/wc))
+            print("Запас по фазе: " + str(round(90 + phase_res, 3)))
+
+    for i in range(0, len(array_phase), 1):
+        if -90.3 < array_phase[i] < -89.7:
+            mag_res = array_mag[i]
+            print("Запас по амплитуде: " + str(round(array_mag[0] - mag_res, 3)))
+
+def Integral(W):
+    e = np.linspace(0, 50, num=1000)
+    y, x = step(W, T=e)
+    I = 0
+    for i in range(0, len(x), 1):
+        I += abs(y[900]-y[i])
+    print("Интегральная оценка: " + str(I))
+
+
+StepResponsible(transferFunction())
+Pole(transferFunction())
+Freq(transferFunction())
+Integral(transferFunction())
