@@ -1,0 +1,110 @@
+from control.matlab import *
+from numpy import *
+import numpy as np
+import matplotlib.pyplot as plt
+from sympy import *
+import random
+import plotly
+import plotly.graph_objs as go
+
+
+def Generate_First_Population():
+    population = []
+    size = 100
+    for j in range(0, size, 1):
+        PID = []
+        P = random.random() * 10
+        I = random.random() * 10
+        D = random.random() * 10
+        PID.append(P)
+        PID.append(I)
+        PID.append(D)
+        population.append(PID)
+    return population
+
+
+def Function(P, I, D):
+    W1 = tf([1.], [6.4, 1])
+    W2 = tf([2.], [4., 1.])
+    W3 = tf([23.], [5., 1.])
+    W4 = tf([D, P, I], [1, 0])
+    W = (W1 * W2 * W3 * W4) / (1 + (W1 * W2 * W3 * W4))
+    return W
+
+
+def Choise(population):
+    global Over
+    Miss = []
+    for i in range(0, len(population), 1):
+        Over = False
+        individ = population[i]
+        P = individ[0]
+        I = individ[1]
+        D = individ[2]
+        W = Function(P, I, D)
+        e = np.linspace(0, 50, num=500)
+        y, x = step(W, T=e)
+        E = 0
+        for j in range(0, len(x), 1):
+            E += abs(1 - y[j])**2
+        Miss.append(E)
+
+    if Over == False:
+        indices = sorted(range(len(Miss)), key=Miss.__getitem__)
+        Pop = []
+        M = []
+        for i in range(0, len(indices), 1):
+            Pop.append(population[indices[i]])
+        for j in range(0, len(indices), 1):
+            M.append(Miss[indices[j]])
+        print(min(M))
+        for k in range(0, len(M), 1):
+            if M[k] < 9:
+                print(Pop[k])
+                PrPop = Pop[k]
+                W = Function(PrPop[0], PrPop[1], PrPop[2])
+                e = np.linspace(0, 50, num=1000)
+                y, x = step(W, T = e)
+                plt.plot(x,y)
+                plt.show()
+                Over = True
+                break
+
+        if Over == False:
+            Generate_New_Population(Pop)
+
+
+def Generate_New_Population(population):
+    New_Population = []
+    for i in range(0, 20, 1):
+        New_Population.append(population[i])
+
+    for j in range(60, 100, 1):
+        individ = population[j]
+        individ[1] = random.random() * 5
+        New_Population.append(population[j])
+
+    for k in range (20, 60, 1):
+        if k != 59:
+            individ1 = population[k]
+            individ2 = population[k + 1]
+            a = individ1[0]
+            individ1[0] = individ2[0]
+            individ2[0] = a
+            b = individ1[2]
+            individ1[2] = individ2[2]
+            individ2[2] = b
+        else:
+            individ1 = population[k]
+            individ2 = population[60]
+            a = individ1[0]
+            individ1[0] = individ2[0]
+            individ2[0] = a
+            b = individ1[2]
+            individ1[2] = individ2[2]
+            individ2[2] = b
+        New_Population.append(population[k])
+    Choise(New_Population)
+
+
+Choise(Generate_First_Population())
